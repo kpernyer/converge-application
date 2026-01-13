@@ -33,6 +33,7 @@
 
 mod config;
 mod packs;
+mod tui;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -59,6 +60,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Launch interactive TUI
+    Tui,
 
     /// Manage domain packs
     Packs {
@@ -109,6 +112,11 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::Tui => {
+            info!("Launching TUI");
+            let mut app = tui::TuiApp::new();
+            app.run().map_err(|e| anyhow::anyhow!("TUI error: {}", e))?;
+        }
 
         Commands::Packs { command } => match command {
             PacksCommands::List => {

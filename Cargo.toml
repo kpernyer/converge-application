@@ -16,12 +16,16 @@ name = "converge"
 path = "src/main.rs"
 
 [dependencies]
-# Converge crates (using relative paths for local development)
-converge-core = { path = "../converge-platform/converge-core", version = "0.6.2" }
-converge-provider = { path = "../converge-platform/converge-provider", version = "0.2.4" }
-converge-domain = { path = "../converge-platform/converge-domain", version = "0.2.4" }
-converge-runtime = { path = "../converge-platform/converge-runtime", version = "0.1.0" }
-converge-tool = { path = "../converge-tool", version = "0.2.1" }
+# Converge crates
+converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
+converge-domain = { git = "https://github.com/kpernyer/converge-domain.git" }
+converge-runtime = { git = "https://github.com/kpernyer/converge-runtime.git" }
+converge-tool = { git = "https://github.com/kpernyer/converge-tool.git" }
+
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
 
 # CLI
 clap = { version = "4", features = ["derive", "env"] }
@@ -57,12 +61,25 @@ sdr-pipeline = []
 [lints.rust]
 unsafe_code = "forbid"
 
+# Patch transitive dependencies to use git repos
+[patch."https://github.com/kpernyer/converge-provider.git"]
+converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+
+[patch."https://github.com/kpernyer/converge-domain.git"]
+converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
+
+[patch."https://github.com/kpernyer/converge-runtime.git"]
+converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
+converge-tool = { git = "https://github.com/kpernyer/converge-tool.git" }
+
 [patch.crates-io]
-converge-core = { path = "../converge-platform/converge-core" }
-converge-provider = { path = "../converge-platform/converge-provider" }
-converge-domain = { path = "../converge-platform/converge-domain" }
-converge-runtime = { path = "../converge-platform/converge-runtime" }
-converge-tool = { path = "../converge-tool" }
+converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
+converge-domain = { git = "https://github.com/kpernyer/converge-domain.git" }
+converge-runtime = { git = "https://github.com/kpernyer/converge-runtime.git" }
+converge-tool = { git = "https://github.com/kpernyer/converge-tool.git" }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }
