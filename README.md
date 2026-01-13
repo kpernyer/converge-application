@@ -4,14 +4,16 @@ Converge distribution - packages domain packs, providers, and runtime into a dep
 
 ## Overview
 
-`converge-application` is the distribution layer of the Converge ecosystem. It composes:
+`converge-application` is the distribution layer of the Converge ecosystem. It is designed around the **Jobs To Be Done (JTBD)** philosophy: refocusing from tool-centric automation to business-centric outcomes.
 
-- **Domain packs** from `converge-domain` (business use-cases and templates)
-- **Providers** from `converge-provider` (LLM adapters, integrations)
-- **Runtime** from `converge-runtime` (HTTP API, job lifecycle)
-- **Core engine** from `converge-core` (semantic convergence)
+Converge delivers on this by composing specialized layers:
 
-> **Architecture principle**: `converge-application` owns **packaging**, not **semantics**.
+- **Truths**: Business-level contracts ("what must be true") expressed in Gherkin.
+- **Packs**: Reusable bundles of Truths, invariants, and wiring defaults.
+- **Blueprints**: Curated compositions of Packs defining high-level domain patterns.
+- **Apps**: Tenant-specific experiences built on Blueprints.
+
+> **Architecture Principle**: `converge-application` owns **packaging and composition**, not semantics. It composes already defined domain meaning.
 
 ## Installation
 
@@ -106,6 +108,7 @@ converge-application = { version = "0.1", features = ["full"] }
 ```
 
 Available features:
+
 - `growth-strategy` - Growth strategy domain pack
 - `sdr-pipeline` - SDR pipeline domain pack
 - `full` - All domain packs

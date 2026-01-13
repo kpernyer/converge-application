@@ -10,6 +10,17 @@ In a layered architecture, `converge-application` sits at the top. It is respons
 
 - **Composition over Logic**: This crate should contain minimal unique business logic. Its complexity lies in its configuration and composition of other crates.
 - **Explicit Boundaries**: It respects the semantic authority of `converge-core` and the business meaning defined in `converge-domain`.
+- **Axiom: App composes; does not invent**: `converge-application` must not define business types, business rules, or new DSLs. It composes already defined domain meaning.
+
+## Product Taxonomy
+
+Deliverables are organized into a strict hierarchy to ensure clarity and reusability:
+
+- **Converge Truths**: Business-level contracts ("what must be true"). They are the source of invariants, acceptance criteria, and lifecycle semantics.
+- **Pack**: A reusable unit of business truth. It's a distributable bundle of Truths, wiring metadata (YAML/JSON), and defaults.
+- **Blueprint**: A curated composition of Packs and agents, defining a high-level domain pattern (e.g., Lead Qualification).
+- **Flow**: The actual execution where agents propose facts, the engine validates them against Truths, and the system converges to a stable outcome.
+- **App**: A deployed, tenant-specific experience built on Blueprints.
 
 ## Layered Composition
 

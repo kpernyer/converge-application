@@ -13,18 +13,21 @@ To provide a productized, batteries-included distribution of the Converge engine
 - Initial CLI for starting the server and running jobs.
 - Basic support for `growth-strategy` and `sdr-pipeline` domain packs.
 
-## Priority 1: Professionalization (Next 2 Weeks)
+## Priority 1: Canonical Job Families (Next 1 Month)
+
+Deliver initial Blueprints and Packs for the 5 core job families:
+
+- **Money** (existential): Initial "Issue Invoice" and "Collect Payment" Packs.
+- **Customers** (growth): "Capture Lead" and "Qualify Deal" Blueprints (expanding on existing growth-strategy).
+- **Delivery** (promise-keeping): "Track Delivery" and "Complete Delivery" invariants.
+- **People** (sustainability): "Onboard Team Member" coordination loop.
+- **Trust & Control** (risk): "Grant Access" authority gates.
+
+## Priority 2: Professionalization & Ecosystem (Next 2 Months)
 
 - [ ] Stabilize CLI interface for template management.
-- [ ] Improve error reporting for deployment-level configuration issues.
-- [ ] Implement robust health checks for all composed layers.
-- [ ] Standardize logging and telemetry across the distribution.
-
-## Priority 2: Ecosystem Integration (Next 1 Month)
-
 - [ ] Add support for dynamically loading external domain packs.
 - [ ] Implement provider selection policies via configuration.
-- [ ] Add Docker-based reference deployment for various cloud targets.
 - [ ] Integrate with `converge-ledger` for audit logging persistence.
 
 ## Roadmap v1.0
