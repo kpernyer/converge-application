@@ -33,10 +33,18 @@
 
 mod config;
 mod packs;
-mod tui;
+mod ui;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::{backend::CrosstermBackend, Terminal};
+use std::io;
+use std::panic;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -113,9 +121,8 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Tui => {
-            info!("Launching TUI");
-            let mut app = tui::TuiApp::new();
-            app.run().map_err(|e| anyhow::anyhow!("TUI error: {}", e))?;
+            // Don't initialize tracing for TUI (conflicts with terminal)
+            run_tui().await?;
         }
 
         Commands::Packs { command } => match command {
@@ -216,6 +223,43 @@ async fn main() -> Result<()> {
             println!("Total Facts: {}", final_facts);
             println!("==========================\n");
         }
+    }
+
+    Ok(())
+}
+
+/// Cleanup terminal on exit or panic
+fn cleanup_terminal() {
+    let _ = disable_raw_mode();
+    let _ = execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture);
+}
+
+/// Run the TUI application with proper terminal lifecycle management
+async fn run_tui() -> Result<()> {
+    // Set up panic hook to restore terminal
+    let original_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |panic_info| {
+        cleanup_terminal();
+        original_hook(panic_info);
+    }));
+
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // Create app and run
+    let app = ui::App::new();
+    let res = ui::run_app(&mut terminal, app).await;
+
+    // Restore terminal
+    cleanup_terminal();
+    terminal.show_cursor()?;
+
+    if let Err(err) = res {
+        eprintln!("Error: {:?}", err);
     }
 
     Ok(())
