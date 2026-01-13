@@ -1,0 +1,66 @@
+[package]
+name = "converge-application"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Converge distribution - packages domain packs, providers, and runtime into a deployable product"
+license = "MIT"
+repository = "https://github.com/kpernyer/converge-application"
+documentation = "https://docs.rs/converge-application"
+keywords = ["converge", "distribution", "packaging", "agentic", "workflow"]
+categories = ["command-line-utilities"]
+authors = ["Kenneth Pernyer <kenneth@aprio.one>"]
+
+[[bin]]
+name = "converge"
+path = "src/main.rs"
+
+[dependencies]
+# Converge crates (from crates.io or git)
+converge-core = "0.6.1"
+converge-provider = "0.2.3"
+converge-domain = "0.2.3"
+converge-runtime = "0.2.1"
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Configuration
+config = "0.14"
+dotenv = "0.15"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+[features]
+default = []
+# Include all domain packs
+full = ["growth-strategy", "sdr-pipeline"]
+# Individual domain packs
+growth-strategy = []
+sdr-pipeline = []
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+similar_names = "allow"
+too_many_lines = "allow"
+items_after_statements = "allow"
+ignore_without_reason = "allow"
+unnecessary_wraps = "allow"
+module_name_repetitions = "allow"
