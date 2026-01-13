@@ -1,0 +1,14 @@
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/serde-43895473bf5a38ae.d: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kpernyer/repo/converge.zone/converge-application/target/debug/build/serde-954f2aba67da5e2d/out/private.rs
+
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/libserde-43895473bf5a38ae.rlib: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kpernyer/repo/converge.zone/converge-application/target/debug/build/serde-954f2aba67da5e2d/out/private.rs
+
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/libserde-43895473bf5a38ae.rmeta: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/kpernyer/repo/converge.zone/converge-application/target/debug/build/serde-954f2aba67da5e2d/out/private.rs
+
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/build/serde-954f2aba67da5e2d/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/kpernyer/repo/converge.zone/converge-application/target/debug/build/serde-954f2aba67da5e2d/out

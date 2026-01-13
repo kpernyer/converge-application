@@ -21,11 +21,8 @@
 //! # Usage
 //!
 //! ```bash
-//! # Start the server with defaults
-//! converge serve
-//!
-//! # Start with specific domain packs
-//! converge serve --packs growth-strategy,sdr-pipeline
+//! # Run a job from the command line
+//! converge run --template growth-strategy --seeds '[]'
 //!
 //! # List available domain packs
 //! converge packs list
@@ -39,8 +36,16 @@ mod packs;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing::info;
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
+
+use converge_core::{Context, ContextKey, Engine, Fact};
+use converge_domain::growth_strategy::{
+    BrandSafetyInvariant, CompetitorAgent, EvaluationAgent, MarketSignalAgent,
+    RequireEvaluationRationale, RequireMultipleStrategies, RequireStrategyEvaluations,
+    StrategyAgent,
+};
+use strum::IntoEnumIterator;
 
 /// Converge - Semantic convergence engine for agentic workflows
 #[derive(Parser)]
@@ -54,24 +59,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the Converge server
-    Serve {
-        /// Host to bind to
-        #[arg(short = 'H', long, default_value = "0.0.0.0", env = "CONVERGE_HOST")]
-        host: String,
-
-        /// Port to bind to
-        #[arg(short, long, default_value = "8080", env = "CONVERGE_PORT")]
-        port: u16,
-
-        /// Domain packs to enable (comma-separated)
-        #[arg(long, env = "CONVERGE_PACKS")]
-        packs: Option<String>,
-
-        /// Enable all available domain packs
-        #[arg(long)]
-        all_packs: bool,
-    },
 
     /// Manage domain packs
     Packs {
@@ -122,37 +109,6 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve {
-            host,
-            port,
-            packs,
-            all_packs,
-        } => {
-            info!("Starting Converge server on {}:{}", host, port);
-
-            // Determine which packs to enable
-            let enabled_packs = if all_packs {
-                packs::available_packs()
-            } else if let Some(pack_list) = packs {
-                pack_list.split(',').map(|s| s.trim().to_string()).collect()
-            } else {
-                // Default: enable all compiled-in packs
-                packs::default_packs()
-            };
-
-            info!(packs = ?enabled_packs, "Domain packs enabled");
-
-            // Build app configuration
-            let app_config = config::AppConfig {
-                host,
-                port,
-                enabled_packs,
-                ..Default::default()
-            };
-
-            // Start server
-            serve(app_config).await?;
-        }
 
         Commands::Packs { command } => match command {
             PacksCommands::List => {
@@ -185,38 +141,102 @@ async fn main() -> Result<()> {
         } => {
             info!(template = %template, "Running job from CLI");
 
-            // TODO: Parse seeds, create job request, run inline
-            println!("CLI job execution not yet implemented");
-            println!("Use the HTTP API: POST /api/v1/templates/jobs");
+            // Load templates from enabled packs
+            let enabled_packs = packs::available_packs();
+            let registry = packs::load_templates(&enabled_packs)?;
+            
+            // Resolve template
+            let template_arc = registry.get(&template).ok_or_else(|| {
+                anyhow::anyhow!("Template '{}' not found in any enabled pack", template)
+            })?;
+            
+            // Parse seeds
+            let mut context = Context::new();
+            if let Some(seeds_raw) = seeds {
+                let seeds_json = if seeds_raw.starts_with('@') {
+                    let path = &seeds_raw[1..];
+                    std::fs::read_to_string(path)
+                        .map_err(|e| anyhow::anyhow!("Failed to read seed file '{}': {}", path, e))?
+                } else {
+                    seeds_raw
+                };
+                
+                let seed_facts: Vec<converge_runtime::templates::SeedFact> = serde_json::from_str(&seeds_json)
+                    .map_err(|e| anyhow::anyhow!("Failed to parse seeds JSON: {}", e))?;
+                
+                for seed in seed_facts {
+                    let fact = Fact::new(
+                        ContextKey::Seeds,
+                        seed.id,
+                        seed.content,
+                    );
+                    context.add_fact(fact).map_err(|e| {
+                        anyhow::anyhow!("Failed to add seed fact: {}", e)
+                    })?;
+                }
+            }
+
+            // Report total facts across all keys
+            let total_facts: usize = ContextKey::iter()
+                .map(|key| context.get(key).len())
+                .sum();
+            info!(facts = total_facts, "Context initialized with seeds");
+
+            // Run convergence loop inline
+            let mut engine = Engine::new();
+            
+            // Register agents from template (Bridge to domain packs)
+            register_pack_agents(&mut engine, template.as_str())?;
+            
+            info!("Starting convergence loop...");
+            let result = engine.run(context)?;
+            
+            if result.converged {
+                info!(cycles = result.cycles, "Job reached fixed point");
+            } else {
+                warn!(cycles = result.cycles, "Job halted without reaching fixed point (budget exhausted)");
+            }
+
+            // Print summary
+            let final_facts: usize = ContextKey::iter()
+                .map(|key| result.context.get(key).len())
+                .sum();
+                
+            println!("\n=== Convergence Result ===");
+            println!("Converged: {}", result.converged);
+            println!("Total Cycles: {}", result.cycles);
+            println!("Total Facts: {}", final_facts);
+            println!("==========================\n");
         }
     }
 
     Ok(())
 }
 
-/// Start the Converge server with the given configuration.
-async fn serve(config: config::AppConfig) -> Result<()> {
-    use converge_runtime::http::HttpServer;
-    use converge_runtime::state::AppState;
-    use std::net::SocketAddr;
+/// Register agents and invariants for a specific domain pack.
+///
+/// This acts as the bridge between the distribution layer and the domain packs.
+fn register_pack_agents(engine: &mut Engine, pack_name: &str) -> Result<()> {
+    match pack_name {
+        "growth-strategy" => {
+            info!(pack = %pack_name, "Registering growth-strategy agents and invariants");
+            
+            // Register Agents
+            engine.register(MarketSignalAgent);
+            engine.register(CompetitorAgent);
+            engine.register(StrategyAgent);
+            engine.register(EvaluationAgent);
 
-    // Create template registry from enabled domain packs
-    let templates = packs::load_templates(&config.enabled_packs)?;
-
-    // Create app state with templates
-    let state = AppState::with_templates(templates);
-
-    // Create HTTP config
-    let bind_addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;
-    let http_config = converge_runtime::config::HttpConfig {
-        bind: bind_addr,
-        max_body_size: 10 * 1024 * 1024, // 10 MB
-    };
-
-    // Start server
-    info!(bind = %bind_addr, "Starting Converge server");
-    let server = HttpServer::new(http_config, state);
-    server.start().await?;
-
+            // Register Invariants
+            engine.register_invariant(BrandSafetyInvariant::default());
+            engine.register_invariant(RequireMultipleStrategies);
+            engine.register_invariant(RequireStrategyEvaluations);
+            engine.register_invariant(RequireEvaluationRationale);
+        }
+        _ => {
+            warn!(pack = %pack_name, "No specific agent registration for pack");
+        }
+    }
     Ok(())
 }
+

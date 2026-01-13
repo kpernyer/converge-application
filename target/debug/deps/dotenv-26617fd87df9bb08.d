@@ -1,0 +1,11 @@
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/dotenv-26617fd87df9bb08.d: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/parse.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/errors.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/iter.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/find.rs
+
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/libdotenv-26617fd87df9bb08.rlib: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/parse.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/errors.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/iter.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/find.rs
+
+/Users/kpernyer/repo/converge.zone/converge-application/target/debug/deps/libdotenv-26617fd87df9bb08.rmeta: /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/lib.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/parse.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/errors.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/iter.rs /Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/find.rs
+
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/lib.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/parse.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/errors.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/iter.rs:
+/Users/kpernyer/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenv-0.15.0/src/find.rs:
