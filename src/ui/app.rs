@@ -12,7 +12,21 @@ use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{backend::CrosstermBackend, widgets::{ListState, TableState}, Terminal};
 use std::io::Stdout;
+use std::sync::Arc;
 use std::time::Duration;
+
+use converge_core::{Context, ContextKey, Engine, Fact};
+use converge_core::llm::LlmProvider;
+use converge_provider::{AnthropicProvider, OpenAiProvider};
+use strum::IntoEnumIterator;
+
+use crate::agents::{MockInsightProvider, RiskAssessmentAgent, StrategicInsightAgent};
+use crate::packs;
+use converge_domain::growth_strategy::{
+    BrandSafetyInvariant, CompetitorAgent, EvaluationAgent, MarketSignalAgent,
+    RequireEvaluationRationale, RequireMultipleStrategies, RequireStrategyEvaluations,
+    StrategyAgent,
+};
 
 pub type AppResult<T> = Result<T>;
 
@@ -173,6 +187,7 @@ pub struct App {
     pub jobs: Vec<JobInfo>,
     pub job_state: TableState,
     pub job_detail: Option<JobDetail>,
+    pub job_details_cache: std::collections::HashMap<String, JobDetail>,
 
     // Packs view
     pub packs: Vec<PackInfo>,
@@ -215,6 +230,7 @@ impl App {
             jobs: Vec::new(),
             job_state,
             job_detail: None,
+            job_details_cache: std::collections::HashMap::new(),
             packs: Vec::new(),
             pack_state,
             submit_form: SubmitForm::new(),
@@ -230,109 +246,69 @@ impl App {
         app
     }
 
-    /// Load demo data for testing the UI
+    /// Load real pack data from the packs module
     fn load_demo_data(&mut self) {
-        // Demo jobs
-        self.jobs = vec![
-            JobInfo {
-                id: "job-001".to_string(),
-                pack: "growth-strategy".to_string(),
-                status: JobStatus::Converged,
-                cycles: 12,
-                facts: 47,
-                created_at: "2025-01-13 10:30".to_string(),
-            },
-            JobInfo {
-                id: "job-002".to_string(),
-                pack: "growth-strategy".to_string(),
-                status: JobStatus::Running,
-                cycles: 5,
-                facts: 23,
-                created_at: "2025-01-13 11:45".to_string(),
-            },
-            JobInfo {
-                id: "job-003".to_string(),
-                pack: "sdr-pipeline".to_string(),
-                status: JobStatus::Paused,
-                cycles: 8,
-                facts: 31,
-                created_at: "2025-01-13 09:15".to_string(),
-            },
-        ];
+        // Load real packs from the packs module
+        let available = packs::available_packs();
+        self.packs = available
+            .iter()
+            .map(|name| {
+                let info = packs::pack_info(name);
+                PackInfo {
+                    name: info.name,
+                    version: info.version,
+                    description: info.description,
+                    agents: get_pack_agents(name),
+                    invariants: info.invariants,
+                }
+            })
+            .collect();
 
-        // Demo packs
-        self.packs = vec![
-            PackInfo {
-                name: "growth-strategy".to_string(),
-                version: "1.0.0".to_string(),
-                description: "AI-powered growth strategy generation".to_string(),
-                agents: vec![
-                    "MarketSignalAgent".to_string(),
-                    "CompetitorAgent".to_string(),
-                    "StrategyAgent".to_string(),
-                    "EvaluationAgent".to_string(),
-                ],
-                invariants: vec![
-                    "BrandSafetyInvariant".to_string(),
-                    "RequireMultipleStrategies".to_string(),
-                ],
-            },
-            PackInfo {
-                name: "sdr-pipeline".to_string(),
-                version: "0.5.0".to_string(),
-                description: "Sales development representative automation".to_string(),
-                agents: vec![
-                    "LeadScoringAgent".to_string(),
-                    "OutreachAgent".to_string(),
-                    "FollowUpAgent".to_string(),
-                ],
-                invariants: vec!["ComplianceInvariant".to_string()],
-            },
-        ];
-
-        // Demo agents
+        // Initialize agents list for growth-strategy (default pack)
         self.agents = vec![
             AgentInfo {
                 name: "MarketSignalAgent".to_string(),
                 status: "Ready".to_string(),
-                last_run: Some("2 min ago".to_string()),
-                facts_produced: 5,
+                last_run: None,
+                facts_produced: 0,
             },
             AgentInfo {
                 name: "CompetitorAgent".to_string(),
                 status: "Ready".to_string(),
-                last_run: Some("2 min ago".to_string()),
-                facts_produced: 3,
+                last_run: None,
+                facts_produced: 0,
             },
             AgentInfo {
                 name: "StrategyAgent".to_string(),
-                status: "Running".to_string(),
+                status: "Ready".to_string(),
+                last_run: None,
+                facts_produced: 0,
+            },
+            AgentInfo {
+                name: "EvaluationAgent".to_string(),
+                status: "Ready".to_string(),
+                last_run: None,
+                facts_produced: 0,
+            },
+            AgentInfo {
+                name: "StrategicInsightAgent".to_string(),
+                status: "Ready".to_string(),
+                last_run: None,
+                facts_produced: 0,
+            },
+            AgentInfo {
+                name: "RiskAssessmentAgent".to_string(),
+                status: "Ready".to_string(),
                 last_run: None,
                 facts_produced: 0,
             },
         ];
 
-        // Demo context facts
-        self.context_facts = vec![
-            FactInfo {
-                key: "Seeds".to_string(),
-                id: "seed-001".to_string(),
-                content: "Target market: Nordic region, B2B SaaS".to_string(),
-                confidence: 1.0,
-            },
-            FactInfo {
-                key: "MarketSignals".to_string(),
-                id: "signal-001".to_string(),
-                content: "Growing demand for AI automation in Nordic enterprises".to_string(),
-                confidence: 0.85,
-            },
-            FactInfo {
-                key: "Competitors".to_string(),
-                id: "comp-001".to_string(),
-                content: "Main competitor: Acme Corp, 30% market share".to_string(),
-                confidence: 0.92,
-            },
-        ];
+        // Start with empty jobs (no demo jobs)
+        self.jobs = Vec::new();
+
+        // Empty context facts until a job is run
+        self.context_facts = Vec::new();
     }
 
     /// Update breadcrumb based on current view
@@ -536,28 +512,27 @@ impl App {
     pub fn enter_job_detail(&mut self) {
         if let Some(idx) = self.job_state.selected() {
             if let Some(job) = self.jobs.get(idx) {
-                // Create demo job detail
-                self.job_detail = Some(JobDetail {
-                    info: job.clone(),
-                    facts: self.context_facts.clone(),
-                    agents: self.agents.clone(),
-                    proposals: vec![
-                        ProposalInfo {
-                            id: "prop-001".to_string(),
-                            agent: "StrategyAgent".to_string(),
-                            key: "Strategies".to_string(),
-                            content: "Expand to Denmark market with localized offering".to_string(),
-                            confidence: 0.78,
-                        },
-                    ],
-                });
+                // Try to get cached job detail
+                if let Some(detail) = self.job_details_cache.get(&job.id) {
+                    self.job_detail = Some(detail.clone());
+                    // Update context facts to show this job's facts
+                    self.context_facts = detail.facts.clone();
+                } else {
+                    // No cached detail - create a minimal one
+                    self.job_detail = Some(JobDetail {
+                        info: job.clone(),
+                        facts: Vec::new(),
+                        agents: self.agents.clone(),
+                        proposals: Vec::new(),
+                    });
+                }
                 self.current_view = View::JobDetail;
                 self.update_breadcrumb();
             }
         }
     }
 
-    /// Submit a new job
+    /// Submit and run a new job using the real convergence engine
     pub fn submit_job(&mut self) {
         if self.submit_form.pack.is_empty() {
             self.submit_form.error = Some("Pack name is required".to_string());
@@ -570,18 +545,115 @@ impl App {
             return;
         }
 
-        // Create new job
         let job_id = format!("job-{:03}", self.jobs.len() + 1);
-        self.jobs.insert(0, JobInfo {
-            id: job_id.clone(),
-            pack: self.submit_form.pack.clone(),
-            status: JobStatus::Pending,
-            cycles: 0,
-            facts: 0,
-            created_at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
-        });
+        let pack_name = self.submit_form.pack.clone();
+        let seeds_json = self.submit_form.seeds.clone();
 
-        self.submit_form.success = Some(format!("Job {} submitted successfully", job_id));
+        // Parse seeds if provided
+        let mut context = Context::new();
+        if !seeds_json.is_empty() {
+            match serde_json::from_str::<Vec<converge_runtime::templates::SeedFact>>(&seeds_json) {
+                Ok(seed_facts) => {
+                    for seed in seed_facts {
+                        let fact = Fact::new(ContextKey::Seeds, seed.id, seed.content);
+                        if let Err(e) = context.add_fact(fact) {
+                            self.submit_form.error = Some(format!("Failed to add seed: {}", e));
+                            return;
+                        }
+                    }
+                }
+                Err(e) => {
+                    self.submit_form.error = Some(format!("Invalid seeds JSON: {}", e));
+                    return;
+                }
+            }
+        }
+
+        // Run convergence engine
+        let mut engine = Engine::new();
+
+        // Register agents for the pack
+        if let Err(e) = register_pack_agents(&mut engine, &pack_name) {
+            self.submit_form.error = Some(format!("Failed to register agents: {}", e));
+            return;
+        }
+
+        // Run the convergence loop
+        match engine.run(context) {
+            Ok(result) => {
+                // Calculate total facts
+                let total_facts: usize = ContextKey::iter()
+                    .map(|key| result.context.get(key).len())
+                    .sum();
+
+                let status = if result.converged {
+                    JobStatus::Converged
+                } else {
+                    JobStatus::Failed
+                };
+
+                // Convert facts to FactInfo
+                let facts: Vec<FactInfo> = ContextKey::iter()
+                    .flat_map(|key| {
+                        result.context.get(key).iter().map(|fact| {
+                            FactInfo {
+                                key: format!("{:?}", fact.key),
+                                id: fact.id.clone(),
+                                content: fact.content.clone(),
+                                confidence: 1.0,
+                            }
+                        }).collect::<Vec<_>>()
+                    })
+                    .collect();
+
+                // Update context facts for the Context view
+                self.context_facts = facts.clone();
+
+                // Create job info
+                let job = JobInfo {
+                    id: job_id.clone(),
+                    pack: pack_name.clone(),
+                    status,
+                    cycles: result.cycles,
+                    facts: total_facts,
+                    created_at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+                };
+
+                // Create job detail
+                let detail = JobDetail {
+                    info: job.clone(),
+                    facts: facts.clone(),
+                    agents: self.agents.clone(),
+                    proposals: Vec::new(),
+                };
+
+                // Store job and detail
+                self.job_details_cache.insert(job_id.clone(), detail.clone());
+                self.job_detail = Some(detail);
+                self.jobs.insert(0, job);
+
+                let status_msg = if result.converged {
+                    format!("Job {} converged in {} cycles with {} facts", job_id, result.cycles, total_facts)
+                } else {
+                    format!("Job {} halted after {} cycles with {} facts", job_id, result.cycles, total_facts)
+                };
+                self.submit_form.success = Some(status_msg);
+            }
+            Err(e) => {
+                // Create failed job entry
+                self.jobs.insert(0, JobInfo {
+                    id: job_id.clone(),
+                    pack: pack_name,
+                    status: JobStatus::Failed,
+                    cycles: 0,
+                    facts: 0,
+                    created_at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
+                });
+                self.submit_form.error = Some(format!("Job failed: {}", e));
+            }
+        }
+
+        // Clear form
         self.submit_form.pack.clear();
         self.submit_form.seeds.clear();
         self.submit_form.max_cycles = "50".to_string();
@@ -696,4 +768,72 @@ pub async fn run_app(
             return Ok(());
         }
     }
+}
+
+/// Get the list of agents for a pack
+fn get_pack_agents(pack_name: &str) -> Vec<String> {
+    match pack_name {
+        "growth-strategy" => vec![
+            "MarketSignalAgent".to_string(),
+            "CompetitorAgent".to_string(),
+            "StrategyAgent".to_string(),
+            "EvaluationAgent".to_string(),
+            "StrategicInsightAgent".to_string(),
+            "RiskAssessmentAgent".to_string(),
+        ],
+        "sdr-pipeline" => vec![
+            "LeadScoringAgent".to_string(),
+            "OutreachAgent".to_string(),
+            "FollowUpAgent".to_string(),
+        ],
+        _ => Vec::new(),
+    }
+}
+
+/// Creates an LLM provider from environment variables.
+fn create_llm_provider() -> Arc<dyn LlmProvider> {
+    tokio::task::block_in_place(|| {
+        // Try Anthropic first
+        if let Ok(provider) = AnthropicProvider::from_env("claude-sonnet-4-20250514") {
+            return Arc::new(provider) as Arc<dyn LlmProvider>;
+        }
+
+        // Try OpenAI second
+        if let Ok(provider) = OpenAiProvider::from_env("gpt-4o") {
+            return Arc::new(provider) as Arc<dyn LlmProvider>;
+        }
+
+        // Fall back to mock provider
+        Arc::new(MockInsightProvider::default_insights()) as Arc<dyn LlmProvider>
+    })
+}
+
+/// Register agents and invariants for a specific domain pack.
+fn register_pack_agents(engine: &mut Engine, pack_name: &str) -> Result<()> {
+    match pack_name {
+        "growth-strategy" => {
+            // Register deterministic agents
+            engine.register(MarketSignalAgent);
+            engine.register(CompetitorAgent);
+            engine.register(StrategyAgent);
+            engine.register(EvaluationAgent);
+
+            // Create LLM provider (shared by all LLM agents)
+            let llm_provider = create_llm_provider();
+
+            // Register LLM-powered agents
+            engine.register(StrategicInsightAgent::new(llm_provider.clone()));
+            engine.register(RiskAssessmentAgent::new(llm_provider));
+
+            // Register Invariants
+            engine.register_invariant(BrandSafetyInvariant::default());
+            engine.register_invariant(RequireMultipleStrategies);
+            engine.register_invariant(RequireStrategyEvaluations);
+            engine.register_invariant(RequireEvaluationRationale);
+        }
+        _ => {
+            return Err(anyhow::anyhow!("Pack '{}' not implemented", pack_name));
+        }
+    }
+    Ok(())
 }
