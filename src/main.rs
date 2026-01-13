@@ -31,6 +31,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+mod agents;
 mod config;
 mod packs;
 mod ui;
@@ -45,10 +46,15 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::io;
 use std::panic;
+use std::sync::Arc;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
+use crate::agents::{MockInsightProvider, RiskAssessmentAgent, StrategicInsightAgent};
+
+use converge_core::llm::LlmProvider;
 use converge_core::{Context, ContextKey, Engine, Fact};
+use converge_provider::{AnthropicProvider, OpenAiProvider};
 use converge_domain::growth_strategy::{
     BrandSafetyInvariant, CompetitorAgent, EvaluationAgent, MarketSignalAgent,
     RequireEvaluationRationale, RequireMultipleStrategies, RequireStrategyEvaluations,
@@ -222,6 +228,20 @@ async fn main() -> Result<()> {
             println!("Total Cycles: {}", result.cycles);
             println!("Total Facts: {}", final_facts);
             println!("==========================\n");
+
+            // Print all facts by category
+            println!("=== Generated Facts ===\n");
+            for key in ContextKey::iter() {
+                let facts = result.context.get(key);
+                if !facts.is_empty() {
+                    println!("[{:?}]", key);
+                    for fact in facts {
+                        println!("  {} | {}", fact.id, fact.content);
+                    }
+                    println!();
+                }
+            }
+            println!("=======================");
         }
     }
 
@@ -265,6 +285,37 @@ async fn run_tui() -> Result<()> {
     Ok(())
 }
 
+/// Creates an LLM provider from environment variables.
+///
+/// Tries providers in order of preference:
+/// 1. Anthropic (ANTHROPIC_API_KEY) - Claude models
+/// 2. OpenAI (OPENAI_API_KEY) - GPT models
+/// 3. Falls back to MockInsightProvider if no API keys are set
+///
+/// Note: This function uses `block_in_place` because the underlying providers
+/// use blocking HTTP clients that can't be created directly in async context.
+fn create_llm_provider() -> Arc<dyn LlmProvider> {
+    // Use block_in_place to safely create blocking providers from async context
+    tokio::task::block_in_place(|| {
+        // Try Anthropic first (Claude is excellent for strategic analysis)
+        if let Ok(provider) = AnthropicProvider::from_env("claude-sonnet-4-20250514") {
+            info!(provider = "anthropic", model = "claude-sonnet-4-20250514", "Using Anthropic Claude for LLM insights");
+            return Arc::new(provider) as Arc<dyn LlmProvider>;
+        }
+
+        // Try OpenAI second
+        if let Ok(provider) = OpenAiProvider::from_env("gpt-4o") {
+            info!(provider = "openai", model = "gpt-4o", "Using OpenAI GPT for LLM insights");
+            return Arc::new(provider) as Arc<dyn LlmProvider>;
+        }
+
+        // Fall back to mock provider
+        warn!("No LLM API keys found (ANTHROPIC_API_KEY or OPENAI_API_KEY). Using mock provider.");
+        info!("Set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env for real LLM insights");
+        Arc::new(MockInsightProvider::default_insights()) as Arc<dyn LlmProvider>
+    })
+}
+
 /// Register agents and invariants for a specific domain pack.
 ///
 /// This acts as the bridge between the distribution layer and the domain packs.
@@ -272,12 +323,23 @@ fn register_pack_agents(engine: &mut Engine, pack_name: &str) -> Result<()> {
     match pack_name {
         "growth-strategy" => {
             info!(pack = %pack_name, "Registering growth-strategy agents and invariants");
-            
-            // Register Agents
+
+            // Register deterministic agents
             engine.register(MarketSignalAgent);
             engine.register(CompetitorAgent);
             engine.register(StrategyAgent);
             engine.register(EvaluationAgent);
+
+            // Create LLM provider (shared by all LLM agents)
+            // Automatically uses real LLM if API keys are available in .env
+            let llm_provider = create_llm_provider();
+
+            // Register LLM-powered agents
+            engine.register(StrategicInsightAgent::new(llm_provider.clone()));
+            info!("Registered LLM-powered StrategicInsightAgent");
+
+            engine.register(RiskAssessmentAgent::new(llm_provider));
+            info!("Registered LLM-powered RiskAssessmentAgent");
 
             // Register Invariants
             engine.register_invariant(BrandSafetyInvariant::default());
