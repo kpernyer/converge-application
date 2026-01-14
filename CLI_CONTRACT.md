@@ -398,7 +398,7 @@ Features:
 - [x] Streaming mode (--stream)
 - [x] JSON output (--json)
 - [ ] Trace output (--trace)
-- [ ] Quiet mode (--quiet)
+- [x] Quiet mode (--quiet)
 
 ### Future
 - [ ] Watch command for live updates

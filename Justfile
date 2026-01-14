@@ -76,6 +76,10 @@ run-stream-json TEMPLATE="growth-strategy":
 run-json TEMPLATE="growth-strategy":
     cargo run -- run --template {{TEMPLATE}} --mock --json
 
+# Run a job in quiet mode (exit code only)
+run-quiet TEMPLATE="growth-strategy":
+    cargo run -- run --template {{TEMPLATE}} --mock --quiet
+
 # Run a job with real LLM
 run-real TEMPLATE="growth-strategy":
     cargo run -- run --template {{TEMPLATE}}

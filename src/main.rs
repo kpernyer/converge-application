@@ -120,6 +120,10 @@ enum Commands {
         /// Stream facts as they arrive (real-time output)
         #[arg(long)]
         stream: bool,
+
+        /// Quiet mode: exit code only, no output
+        #[arg(long)]
+        quiet: bool,
     },
 
     /// Run eval fixtures for reproducible testing
@@ -202,15 +206,23 @@ async fn main() -> Result<()> {
     // Load .env if present
     dotenv::dotenv().ok();
 
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
-        )
-        .with_target(false)
-        .init();
-
     let cli = Cli::parse();
+
+    // Check if we should suppress tracing (quiet mode for Run command)
+    let suppress_tracing = matches!(
+        &cli.command,
+        Commands::Run { quiet: true, .. }
+    );
+
+    // Initialize tracing (skip for quiet mode)
+    if !suppress_tracing {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+            )
+            .with_target(false)
+            .init();
+    }
 
     match cli.command {
         Commands::Tui => {
@@ -251,6 +263,7 @@ async fn main() -> Result<()> {
             mock,
             json,
             stream,
+            quiet,
         } => {
             // Generate or use provided run_id
             let run_id = run_id.unwrap_or_else(|| format!("run_{}", uuid::Uuid::new_v4()));
@@ -263,7 +276,7 @@ async fn main() -> Result<()> {
             let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
             let device_id = format!("cli:{}:{}", hostname, username);
 
-            if !json && !stream {
+            if !json && !stream && !quiet {
                 info!(
                     template = %template,
                     run_id = %run_id,
@@ -311,7 +324,7 @@ async fn main() -> Result<()> {
             let total_facts: usize = ContextKey::iter()
                 .map(|key| context.get(key).len())
                 .sum();
-            if !json && !stream {
+            if !json && !stream && !quiet {
                 info!(facts = total_facts, "Context initialized with seeds");
             }
 
@@ -336,12 +349,26 @@ async fn main() -> Result<()> {
                 None
             };
 
-            if !stream {
+            if !stream && !quiet {
                 info!("Starting convergence loop...");
             }
-            let result = engine.run(context)?;
 
-            if !stream {
+            // Run engine - handle errors differently in quiet mode
+            let result = if quiet {
+                match engine.run(context) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        // Exit codes per CLI_CONTRACT.md:
+                        // 1 = halted (invariant violated), 3 = error (system failure)
+                        let exit_code = if e.to_string().contains("invariant") { 1 } else { 3 };
+                        std::process::exit(exit_code);
+                    }
+                }
+            } else {
+                engine.run(context)?
+            };
+
+            if !stream && !quiet {
                 if result.converged {
                     info!(cycles = result.cycles, "Job reached fixed point");
                 } else {
@@ -350,7 +377,13 @@ async fn main() -> Result<()> {
             }
 
             // Handle output based on mode
-            if let Some(handler) = streaming_handler {
+            if quiet {
+                // Quiet mode: exit code only
+                // Exit codes per CLI_CONTRACT.md:
+                // 0 = converged, 2 = budget_exceeded
+                let exit_code = if result.converged { 0 } else { 2 };
+                std::process::exit(exit_code);
+            } else if let Some(handler) = streaming_handler {
                 // Streaming mode: emit final status line
                 handler.emit_final_status(result.converged, result.cycles);
             } else if json {
