@@ -38,6 +38,7 @@ mod packs;
 mod ui;
 
 use anyhow::Result;
+use chrono::Utc;
 use clap::{Parser, Subcommand};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -45,6 +46,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{backend::CrosstermBackend, Terminal};
+use serde::Serialize;
 use std::io;
 use std::panic;
 use std::sync::Arc;
@@ -97,6 +99,22 @@ enum Commands {
         /// Max cycles budget
         #[arg(long, default_value = "50")]
         max_cycles: u32,
+
+        /// Run ID for traceability (auto-generated if not provided)
+        #[arg(long)]
+        run_id: Option<String>,
+
+        /// Correlation ID to link related runs
+        #[arg(long)]
+        correlation_id: Option<String>,
+
+        /// Use mock LLM for deterministic output
+        #[arg(long)]
+        mock: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Run eval fixtures for reproducible testing
@@ -138,6 +156,40 @@ enum PacksCommands {
         /// Pack name
         name: String,
     },
+}
+
+/// JSON output format for run results (Cross-Platform Contract compliant)
+#[derive(Debug, Serialize)]
+struct RunOutput {
+    run_id: String,
+    correlation_id: String,
+    timestamp: String,
+    actor: ActorInfo,
+    result: RunResultOutput,
+    facts: Vec<FactOutput>,
+}
+
+#[derive(Debug, Serialize)]
+struct ActorInfo {
+    #[serde(rename = "type")]
+    actor_type: String,
+    device_id: String,
+    cli_version: String,
+}
+
+#[derive(Debug, Serialize)]
+struct RunResultOutput {
+    converged: bool,
+    cycles: u32,
+    total_facts: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct FactOutput {
+    sequence: usize,
+    key: String,
+    id: String,
+    content: String,
 }
 
 #[tokio::main]
@@ -189,18 +241,40 @@ async fn main() -> Result<()> {
             template,
             seeds,
             max_cycles,
+            run_id,
+            correlation_id,
+            mock,
+            json,
         } => {
-            info!(template = %template, "Running job from CLI");
+            // Generate or use provided run_id
+            let run_id = run_id.unwrap_or_else(|| format!("run_{}", uuid::Uuid::new_v4()));
+            let correlation_id = correlation_id.unwrap_or_else(|| format!("cor_{}", uuid::Uuid::new_v4()));
+
+            // Build actor
+            let hostname = hostname::get()
+                .map(|h| h.to_string_lossy().to_string())
+                .unwrap_or_else(|_| "unknown".to_string());
+            let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
+            let device_id = format!("cli:{}:{}", hostname, username);
+
+            if !json {
+                info!(
+                    template = %template,
+                    run_id = %run_id,
+                    correlation_id = %correlation_id,
+                    "Running job from CLI"
+                );
+            }
 
             // Load templates from enabled packs
             let enabled_packs = packs::available_packs();
             let registry = packs::load_templates(&enabled_packs)?;
-            
+
             // Resolve template
-            let template_arc = registry.get(&template).ok_or_else(|| {
+            let _template_arc = registry.get(&template).ok_or_else(|| {
                 anyhow::anyhow!("Template '{}' not found in any enabled pack", template)
             })?;
-            
+
             // Parse seeds
             let mut context = Context::new();
             if let Some(seeds_raw) = seeds {
@@ -211,10 +285,10 @@ async fn main() -> Result<()> {
                 } else {
                     seeds_raw
                 };
-                
+
                 let seed_facts: Vec<converge_runtime::templates::SeedFact> = serde_json::from_str(&seeds_json)
                     .map_err(|e| anyhow::anyhow!("Failed to parse seeds JSON: {}", e))?;
-                
+
                 for seed in seed_facts {
                     let fact = Fact::new(
                         ContextKey::Seeds,
@@ -231,13 +305,15 @@ async fn main() -> Result<()> {
             let total_facts: usize = ContextKey::iter()
                 .map(|key| context.get(key).len())
                 .sum();
-            info!(facts = total_facts, "Context initialized with seeds");
+            if !json {
+                info!(facts = total_facts, "Context initialized with seeds");
+            }
 
             // Run convergence loop inline
             let mut engine = Engine::new();
-            
+
             // Register agents from template (Bridge to domain packs)
-            register_pack_agents(&mut engine, template.as_str())?;
+            register_pack_agents(&mut engine, template.as_str(), mock)?;
             
             info!("Starting convergence loop...");
             let result = engine.run(context)?;
@@ -248,30 +324,69 @@ async fn main() -> Result<()> {
                 warn!(cycles = result.cycles, "Job halted without reaching fixed point (budget exhausted)");
             }
 
-            // Print summary
+            // Collect facts for output
             let final_facts: usize = ContextKey::iter()
                 .map(|key| result.context.get(key).len())
                 .sum();
-                
-            println!("\n=== Convergence Result ===");
-            println!("Converged: {}", result.converged);
-            println!("Total Cycles: {}", result.cycles);
-            println!("Total Facts: {}", final_facts);
-            println!("==========================\n");
 
-            // Print all facts by category
-            println!("=== Generated Facts ===\n");
-            for key in ContextKey::iter() {
-                let facts = result.context.get(key);
-                if !facts.is_empty() {
-                    println!("[{:?}]", key);
-                    for fact in facts {
-                        println!("  {} | {}", fact.id, fact.content);
+            if json {
+                // JSON output (Cross-Platform Contract compliant)
+                let mut facts: Vec<FactOutput> = Vec::new();
+                let mut sequence = 0usize;
+                for key in ContextKey::iter() {
+                    for fact in result.context.get(key) {
+                        sequence += 1;
+                        facts.push(FactOutput {
+                            sequence,
+                            key: format!("{:?}", key),
+                            id: fact.id.clone(),
+                            content: fact.content.clone(),
+                        });
                     }
-                    println!();
                 }
+
+                let output = RunOutput {
+                    run_id: run_id.clone(),
+                    correlation_id: correlation_id.clone(),
+                    timestamp: Utc::now().to_rfc3339(),
+                    actor: ActorInfo {
+                        actor_type: "system".to_string(),
+                        device_id: device_id.clone(),
+                        cli_version: env!("CARGO_PKG_VERSION").to_string(),
+                    },
+                    result: RunResultOutput {
+                        converged: result.converged,
+                        cycles: result.cycles,
+                        total_facts: final_facts,
+                    },
+                    facts,
+                };
+
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                // Human-readable output
+                println!("\n=== Convergence Result ===");
+                println!("Run ID: {}", run_id);
+                println!("Correlation ID: {}", correlation_id);
+                println!("Converged: {}", result.converged);
+                println!("Total Cycles: {}", result.cycles);
+                println!("Total Facts: {}", final_facts);
+                println!("==========================\n");
+
+                // Print all facts by category
+                println!("=== Generated Facts ===\n");
+                for key in ContextKey::iter() {
+                    let facts = result.context.get(key);
+                    if !facts.is_empty() {
+                        println!("[{:?}]", key);
+                        for fact in facts {
+                            println!("  {} | {}", fact.id, fact.content);
+                        }
+                        println!();
+                    }
+                }
+                println!("=======================");
             }
-            println!("=======================");
         }
 
         Commands::Eval { command } => match command {
@@ -412,10 +527,15 @@ fn create_llm_provider() -> Arc<dyn LlmProvider> {
 /// Register agents and invariants for a specific domain pack.
 ///
 /// This acts as the bridge between the distribution layer and the domain packs.
-fn register_pack_agents(engine: &mut Engine, pack_name: &str) -> Result<()> {
+///
+/// # Arguments
+/// * `engine` - The convergence engine to register agents with
+/// * `pack_name` - Name of the domain pack (e.g., "growth-strategy")
+/// * `use_mock` - If true, use mock LLM provider for deterministic output
+fn register_pack_agents(engine: &mut Engine, pack_name: &str, use_mock: bool) -> Result<()> {
     match pack_name {
         "growth-strategy" => {
-            info!(pack = %pack_name, "Registering growth-strategy agents and invariants");
+            info!(pack = %pack_name, mock = use_mock, "Registering growth-strategy agents and invariants");
 
             // Register deterministic agents
             engine.register(MarketSignalAgent);
@@ -423,9 +543,13 @@ fn register_pack_agents(engine: &mut Engine, pack_name: &str) -> Result<()> {
             engine.register(StrategyAgent);
             engine.register(EvaluationAgent);
 
-            // Create LLM provider (shared by all LLM agents)
-            // Automatically uses real LLM if API keys are available in .env
-            let llm_provider = create_llm_provider();
+            // Create LLM provider based on mock flag
+            let llm_provider: Arc<dyn LlmProvider> = if use_mock {
+                info!("Using mock LLM provider for deterministic output");
+                Arc::new(MockInsightProvider::default_insights())
+            } else {
+                create_llm_provider()
+            };
 
             // Register LLM-powered agents
             engine.register(StrategicInsightAgent::new(llm_provider.clone()));
