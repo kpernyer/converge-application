@@ -33,6 +33,7 @@
 
 mod agents;
 mod config;
+mod evals;
 mod packs;
 mod ui;
 
@@ -96,6 +97,35 @@ enum Commands {
         /// Max cycles budget
         #[arg(long, default_value = "50")]
         max_cycles: u32,
+    },
+
+    /// Run eval fixtures for reproducible testing
+    Eval {
+        #[command(subcommand)]
+        command: EvalCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum EvalCommands {
+    /// Run eval fixtures
+    Run {
+        /// Specific eval ID to run (runs all if not specified)
+        eval_id: Option<String>,
+
+        /// Directory containing eval fixtures
+        #[arg(short, long, default_value = "evals")]
+        dir: String,
+
+        /// Use mock LLM for faster deterministic tests
+        #[arg(long)]
+        mock: bool,
+    },
+    /// List available eval fixtures
+    List {
+        /// Directory containing eval fixtures
+        #[arg(short, long, default_value = "evals")]
+        dir: String,
     },
 }
 
@@ -243,6 +273,69 @@ async fn main() -> Result<()> {
             }
             println!("=======================");
         }
+
+        Commands::Eval { command } => match command {
+            EvalCommands::Run { eval_id, dir, mock } => {
+                let dir_path = std::path::Path::new(&dir);
+
+                // Load fixtures
+                let mut fixtures = evals::load_fixtures_from_dir(dir_path)?;
+
+                if fixtures.is_empty() {
+                    println!("No eval fixtures found in '{}'", dir);
+                    println!("Create JSON fixture files in the evals/ directory.");
+                    return Ok(());
+                }
+
+                // Filter to specific eval if provided
+                if let Some(ref id) = eval_id {
+                    fixtures.retain(|f| f.eval_id == *id);
+                    if fixtures.is_empty() {
+                        println!("Eval '{}' not found in '{}'", id, dir);
+                        return Ok(());
+                    }
+                }
+
+                // Override mock setting if flag provided
+                if mock {
+                    for fixture in &mut fixtures {
+                        fixture.use_mock_llm = true;
+                    }
+                }
+
+                info!(count = fixtures.len(), "Running eval fixtures");
+
+                // Run evals
+                let results = evals::run_evals(&fixtures);
+
+                // Print results
+                evals::print_results(&results);
+
+                // Exit with error code if any failed
+                let all_passed = results.iter().all(|r| r.passed);
+                if !all_passed {
+                    std::process::exit(1);
+                }
+            }
+            EvalCommands::List { dir } => {
+                let dir_path = std::path::Path::new(&dir);
+                let fixtures = evals::load_fixtures_from_dir(dir_path)?;
+
+                if fixtures.is_empty() {
+                    println!("No eval fixtures found in '{}'", dir);
+                    return Ok(());
+                }
+
+                println!("\nAvailable eval fixtures:\n");
+                for fixture in fixtures {
+                    println!("  {} - {}", fixture.eval_id, fixture.description);
+                    println!("    Pack: {}", fixture.pack);
+                    println!("    Seeds: {}", fixture.seeds.len());
+                    println!("    Mock LLM: {}", fixture.use_mock_llm);
+                    println!();
+                }
+            }
+        },
     }
 
     Ok(())

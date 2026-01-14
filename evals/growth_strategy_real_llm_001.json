@@ -1,0 +1,18 @@
+{
+  "eval_id": "growth_strategy_real_llm_001",
+  "description": "Integration test with real LLM (requires API keys)",
+  "pack": "growth-strategy",
+  "seeds": [
+    {"id": "company", "content": "AI-powered legal tech startup in US market"},
+    {"id": "stage", "content": "Series A, $5M ARR"},
+    {"id": "goal", "content": "Double revenue and expand to enterprise segment"}
+  ],
+  "expected": {
+    "converged": true,
+    "max_cycles": 10,
+    "min_facts": 15,
+    "must_contain_facts": ["insight:", "risk:", "strategy:"],
+    "max_latency_ms": 30000
+  },
+  "use_mock_llm": false
+}

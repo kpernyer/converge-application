@@ -1,0 +1,16 @@
+{
+  "eval_id": "growth_strategy_minimal_001",
+  "description": "Minimal seed should still produce valid strategies",
+  "pack": "growth-strategy",
+  "seeds": [
+    {"id": "context", "content": "Tech company seeking growth"}
+  ],
+  "expected": {
+    "converged": true,
+    "max_cycles": 10,
+    "min_strategies": 2,
+    "must_contain_facts": ["strategy:"],
+    "must_not_contain_facts": ["error:"]
+  },
+  "use_mock_llm": true
+}

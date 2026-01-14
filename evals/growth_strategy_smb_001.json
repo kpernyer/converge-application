@@ -1,0 +1,19 @@
+{
+  "eval_id": "growth_strategy_smb_001",
+  "description": "SMB focus strategy should score highest with Nordic B2B context",
+  "pack": "growth-strategy",
+  "seeds": [
+    {"id": "company", "content": "B2B SaaS startup in Nordic region targeting SMB market"},
+    {"id": "goal", "content": "Expand market share by 20% in Q1 2025"}
+  ],
+  "expected": {
+    "converged": true,
+    "max_cycles": 10,
+    "min_facts": 15,
+    "min_strategies": 3,
+    "min_evaluations": 3,
+    "must_contain_facts": ["strategy:", "eval:", "signal:"],
+    "required_context_keys": ["Seeds", "Signals", "Competitors", "Strategies", "Evaluations"]
+  },
+  "use_mock_llm": true
+}

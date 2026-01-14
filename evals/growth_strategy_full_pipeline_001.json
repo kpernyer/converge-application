@@ -1,0 +1,18 @@
+{
+  "eval_id": "growth_strategy_full_pipeline_001",
+  "description": "Full pipeline should produce insights and risk assessments",
+  "pack": "growth-strategy",
+  "seeds": [
+    {"id": "company", "content": "Fintech startup offering payment processing for SMBs"},
+    {"id": "market", "content": "European market with focus on Germany and France"},
+    {"id": "goal", "content": "Launch in 3 new markets and achieve 50% YoY growth"}
+  ],
+  "expected": {
+    "converged": true,
+    "max_cycles": 10,
+    "min_facts": 12,
+    "must_contain_facts": ["insight:", "risk:"],
+    "required_context_keys": ["Hypotheses", "Constraints"]
+  },
+  "use_mock_llm": true
+}

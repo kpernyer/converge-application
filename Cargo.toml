@@ -52,6 +52,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 # Error handling
 thiserror = "2"
 anyhow = "1"
+uuid = { version = "1.19.0", features = ["v4"] }
 
 [features]
 default = []

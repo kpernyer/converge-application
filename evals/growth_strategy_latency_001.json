@@ -1,0 +1,16 @@
+{
+  "eval_id": "growth_strategy_latency_001",
+  "description": "Convergence should complete within latency budget using mock LLM",
+  "pack": "growth-strategy",
+  "seeds": [
+    {"id": "company", "content": "Enterprise software company"},
+    {"id": "goal", "content": "Increase enterprise sales pipeline"}
+  ],
+  "expected": {
+    "converged": true,
+    "max_cycles": 8,
+    "max_latency_ms": 500,
+    "min_strategies": 2
+  },
+  "use_mock_llm": true
+}
