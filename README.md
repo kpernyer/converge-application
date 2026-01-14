@@ -1,33 +1,45 @@
-# Converge Application
+# Converge: Semantic Governance & Alignment
 
-Converge distribution - packages domain packs, providers, and runtime into a deployable product.
+> Converge is a vision for **semantic governance**. We move from fragmented intent to unified, converged states through a deterministic alignment engine. Our mission is to provide a stable foundation for complex decision-making where human authority and AI agency coexist in a transparent, explainable ecosystem.
 
-## Overview
+## Converge Application
 
-`converge-application` is the distribution layer of the Converge ecosystem. It is designed around the **Jobs To Be Done (JTBD)** philosophy: refocusing from tool-centric automation to business-centric outcomes.
-
-Converge delivers on this by composing specialized layers:
-
-- **Truths**: Business-level contracts ("what must be true") expressed in Gherkin.
-- **Packs**: Reusable bundles of Truths, invariants, and wiring defaults.
-- **Blueprints**: Curated compositions of Packs defining high-level domain patterns.
-- **Apps**: Tenant-specific experiences built on Blueprints.
-
-> **Architecture Principle**: `converge-application` owns **packaging and composition**, not semantics. It composes already defined domain meaning.
-
-## Installation
+## Quick Start
 
 ```bash
+# Install
 cargo install converge-application
+
+# Start server
+converge serve
+
+# Run a job
+converge run --template growth-strategy --seeds @seeds.json
 ```
 
-Or build from source:
+---
 
-```bash
-git clone https://github.com/kpernyer/converge-application
-cd converge-application
-cargo build --release
-```
+## What This Is
+
+`converge-application` is the **distribution layer** of the Converge ecosystem. It packages:
+
+- Domain packs (growth-strategy, sdr-pipeline, etc.)
+- LLM providers (Anthropic, OpenAI, etc.)
+- Runtime server (HTTP/gRPC APIs)
+- CLI tools
+
+Built around the **Jobs To Be Done (JTBD)** philosophy: refocusing from tool-centric automation to business-centric outcomes.
+
+---
+
+## Documentation
+
+- **Knowledgebase:** See [converge-business/knowledgebase/](../converge-business/knowledgebase/)
+- **Architecture:** See [converge-business/knowledgebase/application-ARCHITECTURE.md](../converge-business/knowledgebase/application-ARCHITECTURE.md)
+- **CLI Contract:** See [converge-business/knowledgebase/application-CLI_CONTRACT.md](../converge-business/knowledgebase/application-CLI_CONTRACT.md)
+- **For LLMs:** See [AGENTS.md](AGENTS.md)
+
+---
 
 ## Usage
 
@@ -42,19 +54,6 @@ converge serve -H 127.0.0.1 -p 3000
 
 # Start with specific domain packs
 converge serve --packs growth-strategy,sdr-pipeline
-
-# Start with all available packs
-converge serve --all-packs
-```
-
-### Manage domain packs
-
-```bash
-# List available domain packs
-converge packs list
-
-# Show details of a specific pack
-converge packs info growth-strategy
 ```
 
 ### Run a job from CLI
@@ -63,66 +62,16 @@ converge packs info growth-strategy
 converge run --template growth-strategy --seeds @seeds.json
 ```
 
-## Environment Variables
+---
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CONVERGE_HOST` | Server bind address | `0.0.0.0` |
-| `CONVERGE_PORT` | Server port | `8080` |
-| `CONVERGE_PACKS` | Enabled domain packs (comma-separated) | `growth-strategy` |
+## Related Projects
 
-## Architecture
+- [converge-platform](../converge-platform) - Core platform
+- [converge-runtime](../converge-runtime) - Runtime server
+- [converge-business](../converge-business) - Documentation and strategy
 
-See [docs/ARCHITECTURE_LAYERS.md](docs/ARCHITECTURE_LAYERS.md) for the full architecture overview.
-
-```
-converge-core        <- Semantic engine (the "kernel")
-   ^
-   |
-converge-provider    <- Adapters (capabilities without semantics)
-   ^
-   |
-converge-domain      <- Use-cases (meaning, rules, outcomes)
-   ^
-   |
-converge-runtime     <- Execution service (API + job lifecycle)
-   ^
-   |
-converge-application <- Distribution (packaging + composition)
-```
-
-## Available Domain Packs
-
-| Pack | Description |
-|------|-------------|
-| `growth-strategy` | Multi-agent growth strategy analysis with market signals, competitor analysis, strategy synthesis, and evaluation |
-| `sdr-pipeline` | SDR/sales funnel automation with lead qualification, outreach sequencing, and meeting scheduling |
-
-## Features
-
-Enable features in your build:
-
-```toml
-[dependencies]
-converge-application = { version = "0.1", features = ["full"] }
-```
-
-Available features:
-
-- `growth-strategy` - Growth strategy domain pack
-- `sdr-pipeline` - SDR pipeline domain pack
-- `full` - All domain packs
+---
 
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
-## Contributing
-
-Contributions are welcome! Please read our [Code of Conduct](CODE_OF_CONDUCT.md) first.
-
-## Author
-
-Kenneth Pernyer - [kenneth@aprio.one](mailto:kenneth@aprio.one)
-
-Copyright 2024-2025 Aprio One AB, Sweden
