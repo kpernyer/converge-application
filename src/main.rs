@@ -35,6 +35,7 @@ mod agents;
 mod config;
 mod evals;
 mod packs;
+mod streaming;
 mod ui;
 
 use anyhow::Result;
@@ -115,6 +116,10 @@ enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// Stream facts as they arrive (real-time output)
+        #[arg(long)]
+        stream: bool,
     },
 
     /// Run eval fixtures for reproducible testing
@@ -245,6 +250,7 @@ async fn main() -> Result<()> {
             correlation_id,
             mock,
             json,
+            stream,
         } => {
             // Generate or use provided run_id
             let run_id = run_id.unwrap_or_else(|| format!("run_{}", uuid::Uuid::new_v4()));
@@ -257,7 +263,7 @@ async fn main() -> Result<()> {
             let username = std::env::var("USER").unwrap_or_else(|_| "unknown".to_string());
             let device_id = format!("cli:{}:{}", hostname, username);
 
-            if !json {
+            if !json && !stream {
                 info!(
                     template = %template,
                     run_id = %run_id,
@@ -305,7 +311,7 @@ async fn main() -> Result<()> {
             let total_facts: usize = ContextKey::iter()
                 .map(|key| context.get(key).len())
                 .sum();
-            if !json {
+            if !json && !stream {
                 info!(facts = total_facts, "Context initialized with seeds");
             }
 
@@ -314,23 +320,45 @@ async fn main() -> Result<()> {
 
             // Register agents from template (Bridge to domain packs)
             register_pack_agents(&mut engine, template.as_str(), mock)?;
-            
-            info!("Starting convergence loop...");
-            let result = engine.run(context)?;
-            
-            if result.converged {
-                info!(cycles = result.cycles, "Job reached fixed point");
+
+            // Set up streaming callback if requested
+            let streaming_handler = if stream {
+                use crate::streaming::{OutputFormat, StreamingHandler};
+                let format = if json {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Human
+                };
+                let handler = Arc::new(StreamingHandler::new(format));
+                engine.set_streaming(handler.clone());
+                Some(handler)
             } else {
-                warn!(cycles = result.cycles, "Job halted without reaching fixed point (budget exhausted)");
+                None
+            };
+
+            if !stream {
+                info!("Starting convergence loop...");
+            }
+            let result = engine.run(context)?;
+
+            if !stream {
+                if result.converged {
+                    info!(cycles = result.cycles, "Job reached fixed point");
+                } else {
+                    warn!(cycles = result.cycles, "Job halted without reaching fixed point (budget exhausted)");
+                }
             }
 
-            // Collect facts for output
-            let final_facts: usize = ContextKey::iter()
-                .map(|key| result.context.get(key).len())
-                .sum();
-
-            if json {
+            // Handle output based on mode
+            if let Some(handler) = streaming_handler {
+                // Streaming mode: emit final status line
+                handler.emit_final_status(result.converged, result.cycles);
+            } else if json {
                 // JSON output (Cross-Platform Contract compliant)
+                let final_facts: usize = ContextKey::iter()
+                    .map(|key| result.context.get(key).len())
+                    .sum();
+
                 let mut facts: Vec<FactOutput> = Vec::new();
                 let mut sequence = 0usize;
                 for key in ContextKey::iter() {
@@ -365,6 +393,10 @@ async fn main() -> Result<()> {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 // Human-readable output
+                let final_facts: usize = ContextKey::iter()
+                    .map(|key| result.context.get(key).len())
+                    .sum();
+
                 println!("\n=== Convergence Result ===");
                 println!("Run ID: {}", run_id);
                 println!("Correlation ID: {}", correlation_id);

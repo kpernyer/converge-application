@@ -17,7 +17,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Converge crates
-converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-core = { path = "../converge-platform/converge-core" }
 converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
 converge-domain = { git = "https://github.com/kpernyer/converge-domain.git" }
 converge-runtime = { git = "https://github.com/kpernyer/converge-runtime.git" }
@@ -66,25 +66,28 @@ sdr-pipeline = []
 [lints.rust]
 unsafe_code = "forbid"
 
-# Patch transitive dependencies to use git repos
+# Patch transitive dependencies to use local converge-core
 [patch."https://github.com/kpernyer/converge-provider.git"]
-converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-core = { path = "../converge-platform/converge-core" }
 
 [patch."https://github.com/kpernyer/converge-domain.git"]
-converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-core = { path = "../converge-platform/converge-core" }
 converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
 
 [patch."https://github.com/kpernyer/converge-runtime.git"]
-converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-core = { path = "../converge-platform/converge-core" }
 converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
 converge-tool = { git = "https://github.com/kpernyer/converge-tool.git" }
 
 [patch.crates-io]
-converge-core = { git = "https://github.com/kpernyer/converge-core.git" }
+converge-core = { path = "../converge-platform/converge-core" }
 converge-provider = { git = "https://github.com/kpernyer/converge-provider.git" }
 converge-domain = { git = "https://github.com/kpernyer/converge-domain.git" }
 converge-runtime = { git = "https://github.com/kpernyer/converge-runtime.git" }
 converge-tool = { git = "https://github.com/kpernyer/converge-tool.git" }
+
+[patch."https://github.com/kpernyer/converge-core.git"]
+converge-core = { path = "../converge-platform/converge-core" }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

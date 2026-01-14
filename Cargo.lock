@@ -447,7 +447,6 @@ dependencies = [
 [[package]]
 name = "converge-core"
 version = "0.6.2"
-source = "git+https://github.com/kpernyer/converge-core.git#6a9530437b5fead0c596c4ff880150abed4e14f1"
 dependencies = [
  "hex",
  "rand",

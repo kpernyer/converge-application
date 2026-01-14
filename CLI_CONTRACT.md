@@ -378,7 +378,7 @@ Features:
 - [x] Convergence: Runs halt at stable state
 - [x] No Hidden State: All state in context (run_id in output)
 - [x] Governance Separation: Trust invariants separate from domain
-- [ ] Live Convergence: Streaming output (partial)
+- [x] Live Convergence: Streaming output (--stream flag)
 
 ### Run Identity
 - [x] Run ID on every invocation
@@ -395,7 +395,7 @@ Features:
 - [x] Cross-platform compatible format
 
 ### Output
-- [ ] Streaming mode (--stream)
+- [x] Streaming mode (--stream)
 - [x] JSON output (--json)
 - [ ] Trace output (--trace)
 - [ ] Quiet mode (--quiet)
